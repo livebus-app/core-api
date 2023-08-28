@@ -1,4 +1,4 @@
-FROM public.ecr.aws/docker/library/node:lts as builder
+FROM node:18-alpine as builder
 
 ENV NODE_ENV build
 
@@ -14,7 +14,7 @@ RUN npm run build \
 
 # ---
 
-FROM public.ecr.aws/docker/library/node:lts
+FROM node:18-alpine as production
 
 ENV NODE_ENV production
 
