@@ -4,7 +4,7 @@ ENV NODE_ENV build
 
 WORKDIR /home/node
 
-COPY package*.json prisma ./
+COPY package*.json prisma .env ./
 RUN npm ci
 
 COPY --chown=node:node . .
