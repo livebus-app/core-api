@@ -8,14 +8,14 @@ import {
 } from 'utils/stream.utils';
 
 @Injectable()
-export class deviceService {
-  constructor(private prismaService: PrismaService, private aws: AWSService) {}
+export class DeviceService {
+  constructor(private prismaService: PrismaService, private aws: AWSService) { }
 
-  findAll() {
-    return this.prismaService.device.findMany();
+  findAll(args?: Parameters<typeof this.prismaService.device.findMany>[0]) {
+    return this.prismaService.device.findMany(args);
   }
 
-  findOne(id: number) {
+  findOne(id: string) {
     return this.prismaService.device.findUnique({
       where: {
         id,
@@ -29,21 +29,21 @@ export class deviceService {
     });
 
     await this.aws.kinesisVideo.createStream({
-      StreamName: device.code,
-      DeviceName: device.code,
+      StreamName: device.id,
+      DeviceName: device.id,
       DataRetentionInHours: 24,
     });
 
     const response =
       await this.aws.kinesisVideo.updateImageGenerationConfiguration({
-        StreamName: device.code,
+        StreamName: device.id,
         ImageGenerationConfiguration: {
           Status: 'ENABLED',
           DestinationConfig: {
             DestinationRegion: 'us-east-1',
-            Uri: 's3://' + device.code,
+            Uri: `s3://${process.env.KVS_OUTPUT_BUCKET_NAME}/` + device.id,
           },
-          SamplingInterval: 20000,
+          SamplingInterval: 2000,
           ImageSelectorType: 'PRODUCER_TIMESTAMP',
           Format: 'JPEG',
           FormatConfig: {
@@ -54,25 +54,22 @@ export class deviceService {
         },
       });
 
-    await this.aws.s3.createBucket({
-      Bucket: device.code,
-    });
-
     const ingestFunction = await this.aws.lambda.getFunction({
       FunctionName: process.env.LAMBDA_INGEST_NAME,
     });
 
+    console.info(ingestFunction)
     this.aws.lambda.addPermission({
       FunctionName: ingestFunction.Configuration.FunctionName,
-      StatementId: `AllowS3Invoke${device.code}`,
+      StatementId: `AllowS3Invoke${device.id}`,
 
       Action: 'lambda:InvokeFunction',
       Principal: 's3.amazonaws.com',
-      SourceArn: `arn:aws:s3:::${device.code}`,
+      SourceArn: `arn:aws:s3:::${process.env.KVS_OUTPUT_BUCKET_NAME}`,
     });
 
     this.aws.s3.putBucketNotificationConfiguration({
-      Bucket: device.code,
+      Bucket: process.env.KVS_OUTPUT_BUCKET_NAME,
       NotificationConfiguration: {
         LambdaFunctionConfigurations: [
           {
@@ -86,18 +83,18 @@ export class deviceService {
     return device;
   }
 
-  async delete(id: number) {
+  async delete(id: string) {
     const device = await this.findOne(id);
 
     try {
       await this.aws.s3.deleteBucket({
-        Bucket: device.code,
+        Bucket: device.id,
       });
-    } catch {}
+    } catch { }
 
     try {
       const stream = await this.aws.kinesisVideo.describeStream({
-        StreamName: device.code,
+        StreamName: device.id,
       });
 
       if (stream?.StreamInfo?.StreamARN) {
@@ -105,7 +102,7 @@ export class deviceService {
           StreamARN: stream.StreamInfo.StreamARN,
         });
       }
-    } catch {}
+    } catch { }
 
     return this.prismaService.device.delete({
       where: {
@@ -114,7 +111,7 @@ export class deviceService {
     });
   }
 
-  async getStreamingData(id: number) {
+  async getStreamingData(id: string) {
     const streamEndpoint = await this.getStreamEndpoint(id).catch(() => ({
       url: null,
     }));
@@ -136,11 +133,11 @@ export class deviceService {
     return `${deviceCode}`;
   }
 
-  async getStreamEndpoint(id: number) {
+  async getStreamEndpoint(id: string) {
     const device = await this.findOne(id);
 
     try {
-      const endpoint = await getLiveStream(this.getStreamName(device.code));
+      const endpoint = await getLiveStream(this.getStreamName(device.id));
 
       return endpoint;
     } catch {
@@ -148,42 +145,50 @@ export class deviceService {
     }
   }
 
-  async getStreamProcessor(id: number) {
+  async getStreamProcessor(id: string) {
     const device = await this.findOne(id);
-    const identifier = this.getStreamName(device.code);
+    const identifier = this.getStreamName(device.id);
 
     return getStreamProcessor(identifier);
   }
 
-  async startStreamProcessor(id: number) {
+  async startStreamProcessor(id: string) {
     const device = await this.findOne(id);
-    const identifier = this.getStreamName(device.code);
+    const identifier = this.getStreamName(device.id);
 
     return startStreamProcessor(identifier);
   }
 
-  async getImageGenerationConfiguration(id: number) {
+  async getImageGenerationConfiguration(id: string) {
     const device = await this.findOne(id);
 
     return this.aws.kinesisVideo.describeImageGenerationConfiguration({
-      StreamName: device.code,
+      StreamName: device.id,
     });
   }
 
-  async updateImageGenerationConfiguration(id: number, data: any) {
+  async updateImageGenerationConfiguration(id: string, data: any) {
     const device = await this.findOne(id);
 
     const imageGeneration =
       await this.aws.kinesisVideo.describeImageGenerationConfiguration({
-        StreamName: device.code,
+        StreamName: device.id,
       });
 
     return this.aws.kinesisVideo.updateImageGenerationConfiguration({
-      StreamName: device.code,
+      StreamName: device.id,
       ImageGenerationConfiguration: {
         ...imageGeneration.ImageGenerationConfiguration,
         ...data,
       },
     });
+  }
+
+  async getFrames(id: string) {
+    return this.aws.s3.listObjectsV2({
+      Bucket: "lvb-frames-storage",
+      Prefix: id,
+      MaxKeys: 10,
+    })
   }
 }

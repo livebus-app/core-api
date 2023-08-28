@@ -21,14 +21,14 @@ model Vehicle {
   companyId Int
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
+  maxSeats  Int?
   Device    Device[]
   Company   Company  @relation(fields: [companyId], references: [id])
 }
 
 model Device {
-  id        Int         @id @default(autoincrement())
+  id        String      @id @default(cuid())
   name      String
-  code      String      @default(cuid())
   vehicleId Int
   createdAt DateTime    @default(now())
   updatedAt DateTime    @default(now()) @updatedAt
@@ -39,10 +39,11 @@ model Device {
 
 model Telemetry {
   id             Int      @id @default(autoincrement())
-  deviceId       Int
+  deviceId       String
   createdAt      DateTime @default(now())
   updatedAt      DateTime @default(now()) @updatedAt
   passengerCount Int
+  timestamp      DateTime
   Device         Device   @relation(fields: [deviceId], references: [id])
 }
 
@@ -50,7 +51,7 @@ model Alert {
   id          Int      @id @default(autoincrement())
   type        String
   description String
-  deviceId    Int
+  deviceId    String
   expiredAt   DateTime
   createdAt   DateTime @default(now())
   updatedAt   DateTime @default(now())

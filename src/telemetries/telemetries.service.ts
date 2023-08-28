@@ -6,7 +6,7 @@ import { PrismaService } from 'src/prisma.service';
 export class TelemetriesService {
   constructor(private prismaService: PrismaService) {}
 
-  async getLatestNonExpiredTelemetry(deviceId: number) {
+  async getLatestNonExpiredTelemetry(deviceId: string) {
     const telemetry = await this.prismaService.telemetry.findFirst({
       where: {
         deviceId,
@@ -14,6 +14,24 @@ export class TelemetriesService {
           gte: new Date(new Date().getTime() - 1000 * 30),
         },
       },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    return telemetry;
+  }
+
+  async getTelemetryHistory({ deviceId, startTime, endTime }: { deviceId: string; startTime: Date; endTime: Date }) {
+    const telemetry = await this.prismaService.telemetry.findMany({
+      where: {
+        deviceId,
+        timestamp: {
+          gte: startTime,
+          lte: endTime,
+        },
+      },
+      take: 20,
       orderBy: {
         createdAt: 'desc',
       },

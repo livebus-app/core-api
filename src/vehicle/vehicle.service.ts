@@ -56,4 +56,22 @@ export class VehicleService {
 
     return deviceTelemetry;
   }
+
+  async getTelemetryHistory(id: number) {
+    const devices = await this.prismaService.device.findMany({
+      where: {
+        vehicleId: id,
+      },
+    });
+
+    console.info(devices, { startTime: new Date(new Date().getTime() - 1000 * 60 * 2), endTime: new Date() })
+
+    const telemetryList = (await Promise.all(
+      devices.map((device) =>
+        this.telemetryService.getTelemetryHistory({ deviceId: device.id, startTime: new Date(new Date().getTime() - 1000 * 60 * 60 * 500), endTime: new Date() }),
+      ),
+    )).filter(Boolean).flat();
+
+    return telemetryList;
+  }
 }

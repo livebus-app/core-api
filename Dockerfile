@@ -1,48 +1,28 @@
-###################
-# BUILD FOR LOCAL DEVELOPMENT
-###################
+FROM public.ecr.aws/docker/library/node:lts as builder
 
-FROM node:18-alpine As development
+ENV NODE_ENV build
 
-WORKDIR /usr/src/app
+WORKDIR /home/node
 
-COPY --chown=node:node package*.json ./
-
-RUN npm install
+COPY package*.json prisma ./
+RUN npm ci
 
 COPY --chown=node:node . .
+RUN npx prisma generate
+RUN npm run build \
+    && npm prune --production
 
-USER node
+# ---
 
-###################
-# BUILD FOR PRODUCTION
-###################
-
-FROM node:18-alpine As build
-
-WORKDIR /usr/src/app
-
-COPY --chown=node:node package*.json ./
-
-COPY --chown=node:node --from=development /usr/src/app/node_modules ./node_modules
-
-COPY --chown=node:node . .
-
-RUN npm run build
+FROM public.ecr.aws/docker/library/node:lts
 
 ENV NODE_ENV production
 
-RUN npm ci --only=production && npm cache clean --force
+WORKDIR /home/node
 
-USER node
+COPY --from=builder --chown=node:node /home/node/package*.json ./
+COPY --from=builder --chown=node:node /home/node/node_modules/ ./node_modules/
+COPY --from=builder --chown=node:node /home/node/dist/ ./dist/
+COPY --from=builder --chown=node:node /home/node/prisma/ ./prisma/
 
-###################
-# PRODUCTION
-###################
-
-FROM node:18-alpine As production
-
-COPY --chown=node:node --from=build /usr/src/app/node_modules ./node_modules
-COPY --chown=node:node --from=build /usr/src/app/dist ./dist
-
-CMD [ "node", "dist/main.js" ]
+CMD ["dist/src/main.js"]
