@@ -24,6 +24,7 @@ export class DeviceService {
   }
 
   async create(data: any) {
+    console.log("Vai criar o device");
     const device = await this.prismaService.device.create({
       data,
     });
@@ -34,7 +35,7 @@ export class DeviceService {
       DataRetentionInHours: 24,
     });
 
-    console.info("Criou a stream", device.id, (await this.aws.kinesisVideo.listStreams({ MaxResults: 20 })).StreamInfoList.map(stream => stream.StreamName));
+    console.log("Criou a stream", device.id, (await this.aws.kinesisVideo.listStreams({ MaxResults: 20 })).StreamInfoList.map(stream => stream.StreamName));
 
     const response =
       await this.aws.kinesisVideo.updateImageGenerationConfiguration({
