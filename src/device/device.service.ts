@@ -34,6 +34,8 @@ export class DeviceService {
       DataRetentionInHours: 24,
     });
 
+    console.info("Criou a stream", device.id, (await this.aws.kinesisVideo.listStreams({ MaxResults: 20 })).StreamInfoList.map(stream => stream.StreamName));
+
     const response =
       await this.aws.kinesisVideo.updateImageGenerationConfiguration({
         StreamName: device.id,
@@ -53,32 +55,6 @@ export class DeviceService {
           HeightPixels: 1280,
         },
       });
-
-    const ingestFunction = await this.aws.lambda.getFunction({
-      FunctionName: process.env.LAMBDA_INGEST_NAME,
-    });
-
-    console.info(ingestFunction)
-    this.aws.lambda.addPermission({
-      FunctionName: ingestFunction.Configuration.FunctionName,
-      StatementId: `AllowS3Invoke${device.id}`,
-
-      Action: 'lambda:InvokeFunction',
-      Principal: 's3.amazonaws.com',
-      SourceArn: `arn:aws:s3:::${process.env.KVS_OUTPUT_BUCKET_NAME}`,
-    });
-
-    this.aws.s3.putBucketNotificationConfiguration({
-      Bucket: process.env.KVS_OUTPUT_BUCKET_NAME,
-      NotificationConfiguration: {
-        LambdaFunctionConfigurations: [
-          {
-            Events: ['s3:ObjectCreated:*'],
-            LambdaFunctionArn: ingestFunction.Configuration.FunctionArn,
-          },
-        ],
-      },
-    });
 
     return device;
   }
