@@ -45,13 +45,8 @@ export class VehicleService {
       ),
     )).filter(Boolean);
 
-    const alerts = (await Promise.all(
-      devices.map((device) => this.alertService.getLastNonExpiredAlert(device.id)),
-    )).filter(Boolean);
-
     const deviceTelemetry = {
       passengerCount: telemetryList.reduce((passengerCountReducer, telemetry) => telemetry.passengerCount + passengerCountReducer, 0),
-      alerts,
     }
 
     return deviceTelemetry;

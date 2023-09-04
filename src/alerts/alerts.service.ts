@@ -5,10 +5,15 @@ import { PrismaService } from 'src/prisma.service';
 export class AlertsService {
     constructor(private prismaService: PrismaService) { }
 
-    getLastNonExpiredAlert(deviceId: string) {
-        return this.prismaService.alert.findFirst({
+    getLastNonExpiredAlert(deviceId: number) {
+        return this.prismaService.alert.findMany({
             where: {
-                deviceId,
+                Device: {
+                    vehicleId: deviceId,
+                },
+                expiredAt: {
+                    gt: new Date(),
+                }
             },
             orderBy: {
                 createdAt: 'desc',

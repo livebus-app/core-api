@@ -44,6 +44,7 @@ model Telemetry {
   updatedAt      DateTime @default(now()) @updatedAt
   passengerCount Int
   timestamp      DateTime
+  objectKey      String?
   Device         Device   @relation(fields: [deviceId], references: [id])
 }
 
