@@ -1,4 +1,4 @@
-FROM node:18-alpine as builder
+FROM --platform=amd64 node:18-alpine as builder
 
 ENV NODE_ENV build
 
@@ -14,7 +14,7 @@ RUN npm run build \
 
 # ---
 
-FROM node:18-alpine as production
+FROM --platform=amd64 node:18-alpine as production
 
 ENV NODE_ENV production
 
